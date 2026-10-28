@@ -2,6 +2,10 @@
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+## Vercel deployment
+
+This application uses Create React App, not Next.js. The root `vercel.json` selects Vercel's Create React App framework preset. In the Vercel project settings, set **Root Directory** to `.` (the repository root containing `package.json`). Build with `npm run build`; the production output is in `build`.
+
 ## Supabase authentication
 
 The Sign in button uses Supabase Auth with email and password. In Supabase, create a project and enable the Email provider under **Authentication → Providers**. Then set these environment variables:
