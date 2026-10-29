@@ -5,9 +5,10 @@ import './App.css';
 const STORAGE_KEY = 'hf-playground-conversations';
 const ENDPOINT = 'https://router.huggingface.co/v1/chat/completions';
 const WHOAMI_ENDPOINT = 'https://huggingface.co/api/whoami-v2';
+const LOGO_SRC = `${process.env.PUBLIC_URL}/amex-ai-logo.png`;
 const MODELS = [
-  { id: 'Qwen/Qwen2.5-7B-Instruct', name: 'Qwen 2.5', detail: 'Fast and versatile' },
   { id: 'meta-llama/Llama-3.1-8B-Instruct', name: 'Llama 3.1', detail: 'A capable all-rounder' },
+  { id: 'Qwen/Qwen2.5-7B-Instruct', name: 'Qwen 2.5', detail: 'Fast and versatile' },
   { id: 'mistralai/Mistral-7B-Instruct-v0.3', name: 'Mistral 7B', detail: 'Concise and capable' },
 ];
 const SUGGESTIONS = [
@@ -416,7 +417,7 @@ function App() {
       <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
         <div className="sidebar-top">
           <a className="brand" href="/" aria-label="WISDOM-TO-REACH home">
-            <span className="brand-mark">W2R</span>
+            <img className="brand-mark" src={LOGO_SRC} alt="WISDOM-TO-REACH logo" />
             <span className="brand-name">WISDOM-TO-REACH</span>
           </a>
           <button className="icon-button sidebar-close" aria-label="Close sidebar" onClick={() => setSidebarOpen(false)}><Icon name="close" /></button>
@@ -553,14 +554,14 @@ function App() {
             <div className="messages">
               {activeChat.messages.map((message) => (
                 <article key={message.id} className={`message message-${message.role}`}>
-                  {message.role === 'assistant' ? <div className="assistant-avatar"><span className="brand-mark">W2R</span></div> : <div className="user-avatar">Y</div>}
+                  {message.role === 'assistant' ? <div className="assistant-avatar"><img className="brand-mark" src={LOGO_SRC} alt="" /></div> : <div className="user-avatar">Y</div>}
                   <div className="message-body">
                     <div className="message-author">{message.role === 'assistant' ? message.provider || 'Hugging Face' : 'You'}</div>
                     <div className="message-content">{message.content}</div>
                   </div>
                 </article>
               ))}
-              {sending && <article className="message message-assistant"><div className="assistant-avatar"><span className="brand-mark">W2R</span></div><div className="message-body"><div className="message-author">{diagnosing ? 'OpenAI' : 'Hugging Face'}</div><div className="thinking"><i /><i /><i /></div></div></article>}
+              {sending && <article className="message message-assistant"><div className="assistant-avatar"><img className="brand-mark" src={LOGO_SRC} alt="" /></div><div className="message-body"><div className="message-author">{diagnosing ? 'OpenAI' : 'Hugging Face'}</div><div className="thinking"><i /><i /><i /></div></div></article>}
               <div ref={endRef} />
             </div>
           ) : (

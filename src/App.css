@@ -79,19 +79,13 @@ button {
 }
 
 .brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 39px;
-  height: 29px;
-  border-radius: 10px;
-  background: var(--green);
-  color: #1e3520;
-  font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: -0.4px;
-  line-height: 29px;
+  display: block;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  object-fit: cover;
+  background: #000;
 }
 
 .brand-name {
@@ -662,12 +656,10 @@ button {
 }
 
 .assistant-avatar .brand-mark {
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
-  background: transparent;
-  font-size: 7px;
-  line-height: 22px;
+  flex-basis: 29px;
+  width: 29px;
+  height: 29px;
+  border-radius: 8px;
 }
 
 .message-body {

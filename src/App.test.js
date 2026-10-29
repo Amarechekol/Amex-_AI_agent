@@ -10,6 +10,7 @@ afterEach(() => {
 test('renders the chat playground and suggested prompts without the welcome headline', async () => {
   const { container } = render(<App />);
 
+  expect(screen.getByRole('button', { name: /llama 3\.1/i })).toBeInTheDocument();
   expect(screen.queryByText(/ideas start somewhere/i)).not.toBeInTheDocument();
   expect(screen.queryByText(/a little curiosity can go a long way/i)).not.toBeInTheDocument();
   expect(screen.queryByText(/your ai, your way/i)).not.toBeInTheDocument();
