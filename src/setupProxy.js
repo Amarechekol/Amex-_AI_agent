@@ -1,4 +1,5 @@
 const diagnose = require('../api/diagnose');
+const chat = require('../api/chat');
 
 function parseJsonBody(req, res, next) {
   if (req.body !== undefined || req.method !== 'POST') {
@@ -29,4 +30,5 @@ function parseJsonBody(req, res, next) {
 
 module.exports = function setupProxy(app) {
   app.all('/api/diagnose', parseJsonBody, diagnose);
+  app.all('/api/chat', parseJsonBody, chat);
 };
