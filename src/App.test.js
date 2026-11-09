@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import App from './App';
 
 const originalFetch = global.fetch;
@@ -61,17 +61,6 @@ test('toggles dark and light mode and saves the preference', () => {
   }
 });
 
-test('asks for a Hugging Face token before sending a prompt', () => {
-  render(<App />);
-
-  fireEvent.change(screen.getByRole('textbox', { name: /message/i }), {
-    target: { value: 'Hello there' },
-  });
-  fireEvent.click(screen.getByRole('button', { name: /send message/i }));
-
-  expect(screen.getByRole('alert')).toHaveTextContent(/add a hugging face access token/i);
-});
-
 test('requires sign-in before running the OpenAI diagnosis', () => {
   render(<App />);
 
@@ -95,33 +84,3 @@ test('deletes a conversation from its options menu', () => {
   expect(screen.getByText(/your conversations will appear here/i)).toBeInTheDocument();
 });
 
-test('verifies a token with Hugging Face before connecting', async () => {
-  global.fetch = jest.fn().mockResolvedValue({ ok: true });
-  render(<App />);
-
-  fireEvent.click(screen.getByRole('button', { name: /connect token/i }));
-  fireEvent.change(screen.getByLabelText(/access token/i), {
-    target: { value: 'hf_test_token' },
-  });
-  fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
-
-  await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
-    'https://huggingface.co/api/whoami-v2',
-    { headers: { Authorization: 'Bearer hf_test_token' } },
-  ));
-  await waitFor(() => expect(screen.getByRole('button', { name: /^connected$/i })).toBeInTheDocument());
-});
-
-test('shows an error and stays disconnected when Hugging Face rejects a token', async () => {
-  global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 401 });
-  render(<App />);
-
-  fireEvent.click(screen.getByRole('button', { name: /connect token/i }));
-  fireEvent.change(screen.getByLabelText(/access token/i), {
-    target: { value: 'hf_invalid_token' },
-  });
-  fireEvent.click(screen.getByRole('button', { name: /^connect$/i }));
-
-  expect(await screen.findByRole('alert')).toHaveTextContent(/token was rejected/i);
-  expect(screen.getByRole('button', { name: /connect token/i })).toBeInTheDocument();
-});

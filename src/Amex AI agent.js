@@ -4,7 +4,6 @@ import './App.css';
 
 const STORAGE_KEY = 'hf-playground-conversations';
 const ENDPOINT = 'https://router.huggingface.co/v1/chat/completions';
-const WHOAMI_ENDPOINT = 'https://huggingface.co/api/whoami-v2';
 const LOGO_SRC = `${process.env.PUBLIC_URL}/amex-ai-logo.png`;
 const MODELS = [
   { id: 'meta-llama/Llama-3.1-8B-Instruct', name: 'Llama 3.1', detail: 'A capable all-rounder' },
@@ -85,9 +84,6 @@ function App() {
     }
   });
   const [modelId, setModelId] = useState(MODELS[0].id);
-  const [token, setToken] = useState('');
-  const [tokenDraft, setTokenDraft] = useState('');
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState('sign-in');
   const [authEmail, setAuthEmail] = useState('');
@@ -100,8 +96,6 @@ function App() {
   const [modelOpen, setModelOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatMenuId, setChatMenuId] = useState(null);
-  const [connecting, setConnecting] = useState(false);
-  const [connectionError, setConnectionError] = useState('');
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [diagnoseMode, setDiagnoseMode] = useState(false);
@@ -192,7 +186,6 @@ function App() {
         startNewChat();
       }
       if (event.key === 'Escape') {
-        setSettingsOpen(false);
         setAuthOpen(false);
         setModelOpen(false);
         setSidebarOpen(false);
@@ -252,33 +245,6 @@ function App() {
     }
   }
 
-  async function saveToken(event) {
-    event.preventDefault();
-    const submittedToken = tokenDraft.trim();
-    if (!submittedToken || connecting) return;
-
-    setConnecting(true);
-    setConnectionError('');
-    try {
-      const response = await fetch(WHOAMI_ENDPOINT, {
-        headers: { Authorization: `Bearer ${submittedToken}` },
-      });
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          throw new Error('This token was rejected. Check it and try again.');
-        }
-        throw new Error(`Hugging Face could not verify this token (HTTP ${response.status}). Try again.`);
-      }
-      setToken(submittedToken);
-      setSettingsOpen(false);
-      setError('');
-    } catch (requestError) {
-      setConnectionError(requestError.message || 'Could not connect to Hugging Face. Check your connection and try again.');
-    } finally {
-      setConnecting(false);
-    }
-  }
-
   async function sendMessage(text = draft) {
     const content = text.trim();
     if (!content || sending) return;
@@ -286,11 +252,6 @@ function App() {
       await runCiDiagnosis(content);
       return;
     }
-    if (!token) {
-      setError('Add a Hugging Face access token in Settings to start chatting.');
-      return;
-    }
-
     const chatId = activeId || makeChat().id;
     const userMessage = { role: 'user', content, id: `${Date.now()}-user` };
     const chatBeforeSend = chats.find((chat) => chat.id === chatId);
@@ -312,7 +273,6 @@ function App() {
       const response = await fetch(ENDPOINT, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -339,7 +299,7 @@ function App() {
         ? { ...chat, messages: [...chat.messages, { role: 'assistant', content: answer.trim(), id: `${Date.now()}-assistant` }], updatedAt: Date.now() }
         : chat));
     } catch (requestError) {
-      setError(requestError.message || 'The request failed. Check your connection and Hugging Face token.');
+      setError(requestError.message || 'The request failed. Check your connection and try again.');
     } finally {
       setSending(false);
     }
@@ -481,13 +441,6 @@ function App() {
             <p className="history-empty">Your conversations will appear here.</p>
           )}
         </div>
-        <div className="sidebar-footer">
-          <div className="connection-note"><span className={`connection-dot ${token ? 'connected' : ''}`} /><span>{token ? 'Token ready' : 'Not connected'}</span></div>
-          <button className="settings-button" onClick={() => { setTokenDraft(token); setSettingsOpen(true); }}>
-            <span className="avatar">Y</span><span className="settings-label"><strong>Your workspace</strong><small>{token ? 'Hugging Face connected' : 'Set up your access token'}</small></span>
-            <Icon name="settings" size={17} />
-          </button>
-        </div>
       </aside>
 
       {sidebarOpen && <button className="sidebar-backdrop" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} />}
@@ -532,9 +485,6 @@ function App() {
                 {authLoading ? 'Loading…' : 'Sign in'}
               </button>
             )}
-            <button className={`top-connect ${token ? 'top-connect-ready' : ''}`} onClick={() => { setTokenDraft(token); setSettingsOpen(true); }}>
-              <Icon name={token ? 'check' : 'lock'} size={15} /><span>{token ? 'Connected' : 'Connect token'}</span>
-            </button>
             <button
               className="theme-toggle"
               type="button"
@@ -656,28 +606,6 @@ function App() {
         </div>
       )}
 
-      {settingsOpen && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSettingsOpen(false); }}>
-          <section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-            <button className="modal-close icon-button" aria-label="Close settings" onClick={() => setSettingsOpen(false)}><Icon name="close" /></button>
-            <div className="modal-icon"><Icon name="lock" size={20} /></div>
-            <p className="modal-eyebrow">ONE-TIME SETUP</p>
-            <h2 id="settings-title">Connect Hugging Face</h2>
-            <p className="modal-description">Add an access token to send prompts to the Inference API. Your token stays in this tab and is never saved to conversation history.</p>
-            <form onSubmit={saveToken}>
-              <label className="token-label" htmlFor="hf-token">Access token</label>
-              <input id="hf-token" type="password" autoComplete="off" placeholder="hf_••••••••••••••••••••••••" value={tokenDraft} onChange={(event) => { setTokenDraft(event.target.value); setConnectionError(''); }} />
-              {connectionError && <p className="connection-error" role="alert">{connectionError}</p>}
-              <a className="token-link" href="https://huggingface.co/settings/tokens" target="_blank" rel="noreferrer">Create a token on Hugging Face <Icon name="arrow" size={13} /></a>
-              <div className="modal-actions">
-                {token && <button className="disconnect-button" type="button" onClick={() => { setToken(''); setTokenDraft(''); setSettingsOpen(false); }}>Disconnect</button>}
-                <button className="save-token-button" type="submit" disabled={!tokenDraft.trim() || connecting}>{connecting ? 'Connecting…' : token ? 'Save token' : 'Connect'}{!connecting && <Icon name="arrow" size={15} />}</button>
-              </div>
-            </form>
-            <div className="privacy-note"><Icon name="lock" size={13} /><span>Your token is only held in memory until you close or reload this tab.</span></div>
-          </section>
-        </div>
-      )}
     </main>
   );
 }
