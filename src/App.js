@@ -3,8 +3,7 @@ import { supabase, supabaseConfigured } from './supabaseClient';
 import './App.css';
 
 const STORAGE_KEY = 'hf-playground-conversations';
-const ENDPOINT = 'https://router.huggingface.co/v1/chat/completions';
-const LOGO_SRC = `${process.env.PUBLIC_URL}/amex-ai-logo.png`;
+const ENDPOINT = '/api/chat';
 const MODELS = [
   { id: 'meta-llama/Llama-3.1-8B-Instruct', name: 'Llama 3.1', detail: 'A capable all-rounder' },
   { id: 'Qwen/Qwen2.5-7B-Instruct', name: 'Qwen 2.5', detail: 'Fast and versatile' },
@@ -252,6 +251,7 @@ function App() {
       await runCiDiagnosis(content);
       return;
     }
+
     const chatId = activeId || makeChat().id;
     const userMessage = { role: 'user', content, id: `${Date.now()}-user` };
     const chatBeforeSend = chats.find((chat) => chat.id === chatId);
@@ -272,9 +272,7 @@ function App() {
     try {
       const response = await fetch(ENDPOINT, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: modelId,
           messages: [
@@ -288,10 +286,10 @@ function App() {
       });
       const result = await response.json().catch(() => null);
       if (!response.ok) {
-        const detail = result?.error?.message || result?.error || `Request failed with status ${response.status}.`;
+        const detail = result?.error || `Request failed with status ${response.status}.`;
         throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
       }
-      const answer = result?.choices?.[0]?.message?.content;
+      const answer = result?.choices?.[0]?.message?.content ?? result?.answer;
       if (typeof answer !== 'string' || !answer.trim()) {
         throw new Error('The model returned an empty response. Try again or choose another model.');
       }
@@ -377,7 +375,7 @@ function App() {
       <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
         <div className="sidebar-top">
           <a className="brand" href="/" aria-label="WISDOM-TO-REACH home">
-            <img className="brand-mark" src={LOGO_SRC} alt="WISDOM-TO-REACH logo" />
+            <span className="brand-mark">W2R</span>
             <span className="brand-name">WISDOM-TO-REACH</span>
           </a>
           <button className="icon-button sidebar-close" aria-label="Close sidebar" onClick={() => setSidebarOpen(false)}><Icon name="close" /></button>
@@ -504,14 +502,14 @@ function App() {
             <div className="messages">
               {activeChat.messages.map((message) => (
                 <article key={message.id} className={`message message-${message.role}`}>
-                  {message.role === 'assistant' ? <div className="assistant-avatar"><img className="brand-mark" src={LOGO_SRC} alt="" /></div> : <div className="user-avatar">Y</div>}
+                  {message.role === 'assistant' ? <div className="assistant-avatar"><span className="brand-mark">W2R</span></div> : <div className="user-avatar">Y</div>}
                   <div className="message-body">
                     <div className="message-author">{message.role === 'assistant' ? message.provider || 'Hugging Face' : 'You'}</div>
                     <div className="message-content">{message.content}</div>
                   </div>
                 </article>
               ))}
-              {sending && <article className="message message-assistant"><div className="assistant-avatar"><img className="brand-mark" src={LOGO_SRC} alt="" /></div><div className="message-body"><div className="message-author">{diagnosing ? 'OpenAI' : 'Hugging Face'}</div><div className="thinking"><i /><i /><i /></div></div></article>}
+              {sending && <article className="message message-assistant"><div className="assistant-avatar"><span className="brand-mark">W2R</span></div><div className="message-body"><div className="message-author">{diagnosing ? 'OpenAI' : 'Hugging Face'}</div><div className="thinking"><i /><i /><i /></div></div></article>}
               <div ref={endRef} />
             </div>
           ) : (
@@ -605,9 +603,43 @@ function App() {
           </section>
         </div>
       )}
-
     </main>
   );
 }
 
 export default App;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
