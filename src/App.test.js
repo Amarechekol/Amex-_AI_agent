@@ -4,6 +4,7 @@ import App from './App';
 const originalFetch = global.fetch;
 
 afterEach(() => {
+  window.history.replaceState({}, '', '/');
   global.fetch = originalFetch;
 });
 
