@@ -42,6 +42,13 @@ function makeChat() {
   return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, title: 'New conversation', messages: [], updatedAt: Date.now() };
 }
 
+function getAuthRoute() {
+  const path = window.location.pathname.replace(/\/+$/, '');
+  if (path === '/auth/signup') return 'sign-up';
+  if (path === '/auth/login') return 'sign-in';
+  return null;
+}
+
 function loadChats() {
   let serialized;
   try {
@@ -83,8 +90,7 @@ function App() {
     }
   });
   const [modelId, setModelId] = useState(MODELS[0].id);
-  const [authOpen, setAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState('sign-in');
+  const [authRoute, setAuthRoute] = useState(getAuthRoute);
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authUser, setAuthUser] = useState(null);
@@ -104,6 +110,22 @@ function App() {
   const textareaRef = useRef(null);
   const activeChat = chats.find((chat) => chat.id === activeId);
   const activeModel = MODELS.find((model) => model.id === modelId) || MODELS[0];
+  const authMode = authRoute || 'sign-in';
+
+  function navigateToAuth(mode) {
+    const path = mode === 'sign-up' ? '/auth/signup' : '/auth/login';
+    window.history.pushState({}, '', path);
+    setAuthRoute(mode);
+    setAuthError('');
+    setAuthMessage('');
+  }
+
+  function navigateToChat() {
+    window.history.pushState({}, '', '/');
+    setAuthRoute(null);
+    setAuthError('');
+    setAuthMessage('');
+  }
 
   useEffect(() => {
     try {
@@ -152,6 +174,16 @@ function App() {
   }, []);
 
   useEffect(() => {
+    function handleHistoryChange() {
+      setAuthRoute(getAuthRoute());
+      setAuthError('');
+      setAuthMessage('');
+    }
+    window.addEventListener('popstate', handleHistoryChange);
+    return () => window.removeEventListener('popstate', handleHistoryChange);
+  }, []);
+
+  useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [activeChat?.messages, sending]);
 
@@ -185,7 +217,6 @@ function App() {
         startNewChat();
       }
       if (event.key === 'Escape') {
-        setAuthOpen(false);
         setModelOpen(false);
         setSidebarOpen(false);
         setChatMenuId(null);
@@ -219,11 +250,31 @@ function App() {
       }
 
       setAuthUser(result.data.user || result.data.session?.user || null);
-      setAuthOpen(false);
+      navigateToChat();
       setAuthPassword('');
     } catch (requestError) {
       setAuthError(requestError.message || 'Authentication failed. Please try again.');
     } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function handleOAuthSignIn(provider) {
+    if (!supabase || authBusy) return;
+
+    setAuthBusy(true);
+    setAuthError('');
+    setAuthMessage('');
+    try {
+      const options = { redirectTo: window.location.origin };
+      if (provider === 'azure') options.scopes = 'email';
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options,
+      });
+      if (oauthError) throw oauthError;
+    } catch (requestError) {
+      setAuthError(requestError.message || 'Could not start sign-in. Please try again.');
       setAuthBusy(false);
     }
   }
@@ -370,6 +421,89 @@ function App() {
     }
   }
 
+  if (authRoute) {
+    return (
+      <main className={`auth-screen${darkMode ? ' theme-dark' : ''}`} aria-label="Account access">
+        <section className="auth-card" aria-labelledby="auth-title">
+          <a className="auth-brand" href="/" onClick={(event) => { event.preventDefault(); navigateToChat(); }}>
+            <span className="brand-mark auth-brand-mark">W2R</span>
+            <span>WISDOM-TO-REACH</span>
+          </a>
+          <h1 id="auth-title">{authMode === 'sign-in' ? 'Welcome back' : 'Create your account'}</h1>
+          <p className="auth-intro">
+            {authMode === 'sign-in' ? 'Sign in to continue to WISDOM-TO-REACH.' : 'Create an account to get started with WISDOM-TO-REACH.'}
+          </p>
+
+          <div className="auth-providers" aria-label="Social sign-in options">
+            <button type="button" className="auth-provider-button" onClick={() => handleOAuthSignIn('google')} disabled={!supabaseConfigured || authBusy}>
+              <span className="provider-letter provider-google" aria-hidden="true">G</span>
+              Continue with Google
+            </button>
+            <button type="button" className="auth-provider-button" onClick={() => handleOAuthSignIn('apple')} disabled={!supabaseConfigured || authBusy}>
+              <span className="provider-letter provider-apple" aria-hidden="true">A</span>
+              Continue with Apple
+            </button>
+            <button type="button" className="auth-provider-button" onClick={() => handleOAuthSignIn('azure')} disabled={!supabaseConfigured || authBusy}>
+              <span className="provider-letter provider-microsoft" aria-hidden="true">M</span>
+              Continue with Microsoft
+            </button>
+          </div>
+
+          <div className="auth-divider"><span>or continue with email</span></div>
+
+          {!supabaseConfigured && (
+            <div className="auth-setup-message" role="alert">
+              Configure <code>REACT_APP_SUPABASE_URL</code> and <code>REACT_APP_SUPABASE_ANON_KEY</code> in your environment, then restart or redeploy the app.
+            </div>
+          )}
+
+          <form className="auth-form" onSubmit={handleAuthSubmit}>
+            <label className="token-label" htmlFor="auth-email">Email</label>
+            <input
+              id="auth-email"
+              type="email"
+              autoComplete="email"
+              required
+              value={authEmail}
+              onChange={(event) => { setAuthEmail(event.target.value); setAuthError(''); }}
+              placeholder="you@example.com"
+              disabled={!supabaseConfigured || authBusy}
+            />
+            <label className="token-label auth-password-label" htmlFor="auth-password">Password</label>
+            <input
+              id="auth-password"
+              type="password"
+              autoComplete={authMode === 'sign-in' ? 'current-password' : 'new-password'}
+              minLength={6}
+              required
+              value={authPassword}
+              onChange={(event) => { setAuthPassword(event.target.value); setAuthError(''); }}
+              placeholder="At least 6 characters"
+              disabled={!supabaseConfigured || authBusy}
+            />
+            {authError && <p className="connection-error" role="alert">{authError}</p>}
+            {authMessage && <p className="auth-success" role="status">{authMessage}</p>}
+            <button className="auth-submit-button" type="submit" disabled={!supabaseConfigured || authBusy}>
+              {authBusy ? 'Please wait...' : authMode === 'sign-in' ? 'Continue' : 'Create account'}
+            </button>
+          </form>
+
+          <p className="auth-switch">
+            {authMode === 'sign-in' ? "Don't have an account?" : 'Already have an account?'}
+            {' '}
+            <button type="button" onClick={() => {
+              setAuthPassword('');
+              navigateToAuth(authMode === 'sign-in' ? 'sign-up' : 'sign-in');
+            }}>
+              {authMode === 'sign-in' ? 'Sign up' : 'Sign in'}
+            </button>
+          </p>
+          <p className="auth-legal">Secure sign-in powered by Supabase.</p>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className={`app-shell${darkMode ? ' theme-dark' : ''}`}>
       <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
@@ -477,7 +611,7 @@ function App() {
               <button
                 className="sign-in-button"
                 type="button"
-                onClick={() => { setAuthOpen(true); setAuthError(''); setAuthMessage(''); }}
+                onClick={() => navigateToAuth('sign-in')}
                 disabled={authLoading}
               >
                 {authLoading ? 'Loading…' : 'Sign in'}
@@ -544,65 +678,6 @@ function App() {
         </div>
       </section>
 
-      {authOpen && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAuthOpen(false); }}>
-          <section className="settings-modal auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-            <button className="modal-close icon-button" aria-label="Close sign-in" onClick={() => setAuthOpen(false)}><Icon name="close" /></button>
-            <div className="modal-icon"><Icon name="lock" size={20} /></div>
-            <p className="modal-eyebrow">WISDOM-TO-REACH ACCOUNT</p>
-            <h2 id="auth-title">{authMode === 'sign-in' ? 'Welcome back' : 'Create your account'}</h2>
-            <p className="modal-description">
-              {supabaseConfigured
-                ? authMode === 'sign-in' ? 'Sign in with your email and password.' : 'Create an account using your email address.'
-                : 'Authentication needs Supabase project settings before it can be used.'}
-            </p>
-            {!supabaseConfigured ? (
-              <div className="auth-setup-message" role="alert">
-                Configure <code>REACT_APP_SUPABASE_URL</code> and <code>REACT_APP_SUPABASE_ANON_KEY</code> in your environment, then restart or redeploy the app.
-              </div>
-            ) : (
-              <form onSubmit={handleAuthSubmit}>
-                <label className="token-label" htmlFor="auth-email">Email</label>
-                <input
-                  id="auth-email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={authEmail}
-                  onChange={(event) => { setAuthEmail(event.target.value); setAuthError(''); }}
-                  placeholder="you@example.com"
-                />
-                <label className="token-label auth-password-label" htmlFor="auth-password">Password</label>
-                <input
-                  id="auth-password"
-                  type="password"
-                  autoComplete={authMode === 'sign-in' ? 'current-password' : 'new-password'}
-                  minLength={6}
-                  required
-                  value={authPassword}
-                  onChange={(event) => { setAuthPassword(event.target.value); setAuthError(''); }}
-                  placeholder="At least 6 characters"
-                />
-                {authError && <p className="connection-error" role="alert">{authError}</p>}
-                {authMessage && <p className="auth-success" role="status">{authMessage}</p>}
-                <button className="auth-mode-toggle" type="button" onClick={() => {
-                  setAuthMode((mode) => mode === 'sign-in' ? 'sign-up' : 'sign-in');
-                  setAuthError('');
-                  setAuthMessage('');
-                }}>
-                  {authMode === 'sign-in' ? 'New here? Create an account' : 'Already have an account? Sign in'}
-                </button>
-                <div className="modal-actions">
-                  <button className="save-token-button" type="submit" disabled={authBusy}>
-                    {authBusy ? 'Please wait…' : authMode === 'sign-in' ? 'Sign in' : 'Create account'}
-                  </button>
-                </div>
-              </form>
-            )}
-            <div className="privacy-note"><Icon name="lock" size={13} /><span>{supabaseConfigured ? 'Your account is authenticated securely by Supabase.' : 'Authentication starts after the Supabase project settings are configured.'}</span></div>
-          </section>
-        </div>
-      )}
     </main>
   );
 }
